@@ -83,14 +83,67 @@
 **RNG Integration**: Use `prng` library (recommended by parent project) for CLI random number generation
 
 ## Active Development Areas
-- [ ] Define CLI argument structure and parsing strategy
-- [ ] Implement basic dice expression input handling with dice_trio integration
+- [x] **COMPLETED**: Define CLI argument structure and parsing strategy
+- [x] **COMPLETED**: Implement basic dice expression input handling with dice_trio integration
+- [ ] Test existing single and multiple expression functionality
+- [ ] **NEW FEATURE**: Implement --interactive flag for loop mode while preserving one-off roll behavior
 - [ ] Design output formatting for roll results (human-readable default)
 - [ ] Error handling and user-friendly feedback for CLI context
 - [ ] Help system and usage documentation
 - [ ] Consider advanced features: verbose output, JSON format, batch rolling
 - [x] **COMPLETED**: Bolt-on architecture interface contract design
 - [x] **COMPLETED**: Flag-based extension system documentation
+
+### Interactive Mode Design (Session 2025-09-21)
+**Goal**: Add `--interactive` flag for REPL-style dice rolling while preserving one-off command behavior
+
+**Usage Patterns**:
+```bash
+dtc d6                    # One-off roll and exit
+dtc d6 2d8+1 d20         # Multiple one-off rolls and exit
+dtc --interactive        # Enter interactive loop mode
+```
+
+**Architecture Considerations**:
+- Interactive mode: REPL loop for game sessions with repeated rolls
+- One-off mode: Fast execution for scripting and quick rolls
+- Bolt-on loading: Extensions may behave differently in interactive vs one-off modes
+- Help system: Update to document both modes
+
+**Implementation Steps**:
+1. Add --interactive flag parsing to Command type
+2. Design interactive loop architecture (input/output cycle)
+3. Update help documentation for both modes
+4. Consider bolt-on extension behavior in each mode
+
+### GM-Focused Output Formatting (Session 2025-09-21)
+**Goal**: Clean, table-friendly output that GMs can read instantly during sessions
+
+**Formatting Rules**:
+- **Single roll**: Clean format without numbering (`d6: 4`)
+- **Multiple rolls**: Numbered for tracking (`1. d6: 4`, `2. 2d6+3: [4,2] + 3 = 9`)
+- **Breakdown display**: Show individual dice for multi-die rolls
+- **Modifier clarity**: Clear addition/subtraction display
+
+**Output Examples**:
+```bash
+# Single expression
+d6: 4
+
+# Multiple expressions
+1. d6: 4
+2. 2d6+3: [4,2] + 3 = 9
+3. 3d6: [4,2,5] = 11
+4. d20-1: 15 - 1 = 14
+```
+
+**Test Writing Order**:
+1. Single die roll formatting (`d6: 4`)
+2. Multi-die roll without modifier (`3d6: [4,2,5] = 11`)
+3. Single die with modifier (`d6+2: 4 + 2 = 6`)
+4. Multi-die roll with modifier (`2d6+3: [4,2] + 3 = 9`)
+5. Error formatting (user-friendly messages)
+6. Multiple roll results formatting (numbered batch output)
 
 ## Questions to Resolve
 - CLI argument parsing approach: manual pattern matching vs library?
