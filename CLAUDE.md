@@ -61,11 +61,14 @@ gleam shell
 *Use this section for quick development notes during Claude Code sessions*
 
 ### Active Development Areas
-- [ ] Define CLI argument structure and parsing
-- [ ] Implement basic dice expression input handling
-- [ ] Design output formatting for roll results
-- [ ] Error handling and user feedback
-- [ ] Help system and usage documentation
+- [x] Define CLI argument structure and parsing ✅ **DONE** - Command pattern implemented
+- [x] Implement basic dice expression input handling ✅ **DONE** - All 4 error types with corporate formatting
+- [ ] Design output formatting for roll results ← **NEXT UP** (successful single/batch rolls)
+- [x] Error handling and user feedback ✅ **DONE** - Corporate error messaging complete
+- [ ] Help system and usage documentation ← **PARTIAL** (basic help done, needs expansion)
+- [ ] Silent mode functionality
+- [ ] Interactive mode with --interactive flag
+- [ ] Personality system integration (randomized error messages from TOML)
 
 ### Quick Links
 - Main module: `src/dice_trio_cli.gleam`
