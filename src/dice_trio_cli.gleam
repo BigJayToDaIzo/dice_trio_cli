@@ -9,7 +9,7 @@ pub type Command {
   Help
   BasicRoll(Result(dice_trio.BasicRoll, dice_trio.DiceError))
   BasicRollList(List(Result(dice_trio.BasicRoll, dice_trio.DiceError)))
-  // DetailedRoll(...)
+  DetailedRoll(Result(dice_trio.DetailedRoll, dice_trio.DiceError))
   // DetailedRollList(...)
 }
 
@@ -44,6 +44,31 @@ pub fn format_basic_roll(br: dice_trio.BasicRoll, roll_total: Int) -> String {
   }
 }
 
+pub fn format_default_success(
+  br: dice_trio.BasicRoll,
+  roll_total: Int,
+) -> String {
+  "Process completed successfully! Operation executed: "
+  <> format_dice_expression(br)
+  <> " returned ["
+  <> int.to_string(roll_total)
+  <> "]"
+}
+
+fn format_dice_expression(br: dice_trio.BasicRoll) -> String {
+  case br.roll_count > 1, br.modifier != 0 {
+    False, False -> side_count_to_str(br.side_count)
+    True, False ->
+      roll_count_to_str(br.roll_count) <> side_count_to_str(br.side_count)
+    False, True ->
+      side_count_to_str(br.side_count) <> modifier_to_str(br.modifier)
+    True, True ->
+      roll_count_to_str(br.roll_count)
+      <> side_count_to_str(br.side_count)
+      <> modifier_to_str(br.modifier)
+  }
+}
+
 fn roll_total_to_str(rt: Int) -> String {
   ": " <> int.to_string(rt)
 }
@@ -65,13 +90,20 @@ fn roll_count_to_str(dc: Int) -> String {
 
 pub fn execute_command(c: Command) -> String {
   case c {
-    Help -> display_help()
     BasicRoll(br) ->
       case br {
-        Ok(core_br) -> todo as "successfuly parsed roll"
+        Ok(core_br) -> {
+          case dice_trio.roll("d6", fn(_) { 4 }) {
+            Ok(total) -> format_default_success(core_br, total)
+            Error(e) -> parse_error_msg(e)
+          }
+        }
         Error(e) -> parse_error_msg(e)
       }
-    _ -> todo as "rest of the commands"
+    // BasicRollList(core_brl) -> todo as "list of basic rolls"
+    DetailedRoll(core_dr) -> todo as "detailed parsed roll"
+    // DetailedRollList(core_drl) -> todo as "list of detailed rolls"
+    _ -> display_help()
   }
 }
 
@@ -88,9 +120,8 @@ pub fn parse_error_msg(e: dice_trio.DiceError) -> String {
       <> "' requires debugging - try 'd6' or '2d20+3'"
     dice_trio.MissingSeparator ->
       "Process terminated! Dice separator missing: gotta put that d all up in it - try 'd6' or '2d20+3'"
-    dice_trio.MalformedInput ->
+    _ ->
       "Process terminated! Malformed input detected: requires debugging - try 'd6' or '2d20+3'"
-    _ -> todo as "other errortypes"
   }
 }
 

@@ -48,3 +48,17 @@ pub fn parse_and_execute_malformed_input_expression_full_pipeline_test() {
     "Process terminated! Malformed input detected: requires debugging - try 'd6' or '2d20+3'",
   )
 }
+
+pub fn parse_and_execute_successful_single_roll_full_pipeline_test() {
+  let args = ["d6"]
+  let command = dice_trio_cli.parse_arg(args)
+  dice_trio_cli.execute_command(command)
+  |> should.equal("Process completed successfully! Operation executed: d6 returned [4]")
+}
+
+pub fn parse_and_execute_successful_batch_rolls_full_pipeline_test() {
+  let args = ["d6", "2d8+1", "d20"]
+  let command = dice_trio_cli.do_parse_args([], args)
+  dice_trio_cli.execute_command(command)
+  |> should.equal("Process completed successfully! Batch operations executed:\n1. d20 returned [4]\n2. 2d8+1 returned [9]\n3. d6 returned [4]")
+}

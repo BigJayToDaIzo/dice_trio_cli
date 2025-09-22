@@ -63,12 +63,18 @@ gleam shell
 ### Active Development Areas
 - [x] Define CLI argument structure and parsing ✅ **DONE** - Command pattern implemented
 - [x] Implement basic dice expression input handling ✅ **DONE** - All 4 error types with corporate formatting
-- [ ] Design output formatting for roll results ← **NEXT UP** (successful single/batch rolls)
+- [x] Design successful single roll formatting ✅ **DONE** - Corporate theme with square brackets
+- [ ] Implement successful batch roll formatting ← **NEXT UP** (red test written, ready for implementation)
 - [x] Error handling and user feedback ✅ **DONE** - Corporate error messaging complete
 - [ ] Help system and usage documentation ← **PARTIAL** (basic help done, needs expansion)
-- [ ] Silent mode functionality
-- [ ] Interactive mode with --interactive flag
-- [ ] Personality system integration (randomized error messages from TOML)
+- [ ] Add silent mode functionality
+- [ ] Implement --interactive flag for loop mode while preserving one-off roll behavior
+- [ ] Document interactive mode flag usage and behavior in help system
+- [ ] Design interactive loop architecture (REPL-style input/output)
+- [ ] Consider bolt-on extension loading in interactive vs one-off modes
+- [ ] Later: Add randomness and personality pools from TOML files (E2E test)
+- [ ] Later: Add full dice rolling pipeline with RNG (E2E test)
+- [ ] Later: Add detailed roll formatting tests with individual dice breakdown
 
 ### Quick Links
 - Main module: `src/dice_trio_cli.gleam`
