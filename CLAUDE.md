@@ -5,7 +5,7 @@
 # Test suite
 gleam test
 
-# Format code  
+# Format code
 gleam format
 
 # Type check
@@ -40,6 +40,7 @@ gleam shell
 - Test CLI argument parsing and output formatting
 - Red-Green-Refactor cycle strictly enforced
 - **NO CODE IMPLEMENTATION** until a red test has been written first - ALWAYS red test before any functionality
+- Bottom-up TDD: Test pure functions first, then compose into integration tests
 
 ## Collaboration Guidelines
 - **Rubber Duck Philosophy**: Serve as rubber duck debugger and strategic advisor, not code generator
@@ -51,30 +52,86 @@ gleam shell
 - Focus on planning, design patterns, and approach discussions
 - Support independent problem-solving while maintaining full transparency about AI contributions
 
-## Current Architecture Notes
-- **CLI Interface**: Command-line wrapper for dice_trio library
-- **Core Integration**: Leverage dice_trio for dice rolling logic
-- **User Experience**: Focus on intuitive CLI design and helpful error messages
-- **Future Extensions**: Support for advanced dice expressions and output formats
+## Current Architecture - MINIMAL UNIX PHILOSOPHY
+
+**Core Philosophy**: Do one thing well - roll dice and show results. Keep it simple, composable, and pipeable.
+
+### Architecture Flow
+```
+args → Command → execute_command() → String → stdout
+```
+
+### Command Type
+```gleam
+pub type Command {
+  Help
+  BasicRoll(Result(dice_trio.BasicRoll, dice_trio.DiceError))
+  BasicRollList(List(Result(dice_trio.BasicRoll, dice_trio.DiceError)))
+}
+```
+
+### Output Format (Minimal Default)
+```bash
+# Single expression
+dtc d6              # Output: d6: [4]
+
+# Multiple expressions
+dtc d6 2d20+3 d8    # Output:
+                    # 1. d6: [3]
+                    # 2. 2d20+3: [15]
+                    # 3. d8: [7]
+
+# Errors to stderr
+dtc invalid         # stderr: Invalid dice expression
+```
+
+### Extension Strategy
+Core stays minimal. Advanced features via:
+1. **Formatter libraries**: `dice_trio_format_*` packages wrap output
+2. **Wrapper tools**: `dtc-repl`, `dtc-detailed`, etc. compose core
+3. **Public API**: Export pure functions for other tools to use
+
+```gleam
+// Extension point for libraries
+pub type Formatter = fn(String, Int) -> String
+
+pub fn default_format(expr: String, result: Int) -> String {
+  expr <> ": [" <> int.to_string(result) <> "]"
+}
+```
 
 ## Session Tracking
-*Use this section for quick development notes during Claude Code sessions*
 
-### Active Development Areas
-- [x] Define CLI argument structure and parsing ✅ **DONE** - Command pattern implemented
-- [x] Implement basic dice expression input handling ✅ **DONE** - All 4 error types with corporate formatting
-- [x] Design successful single roll formatting ✅ **DONE** - Corporate theme with square brackets
-- [ ] Implement successful batch roll formatting ← **NEXT UP** (red test written, ready for implementation)
-- [x] Error handling and user feedback ✅ **DONE** - Corporate error messaging complete
-- [ ] Help system and usage documentation ← **PARTIAL** (basic help done, needs expansion)
-- [ ] Add silent mode functionality
-- [ ] Implement --interactive flag for loop mode while preserving one-off roll behavior
-- [ ] Document interactive mode flag usage and behavior in help system
-- [ ] Design interactive loop architecture (REPL-style input/output)
-- [ ] Consider bolt-on extension loading in interactive vs one-off modes
-- [ ] Later: Add randomness and personality pools from TOML files (E2E test)
-- [ ] Later: Add full dice rolling pipeline with RNG (E2E test)
-- [ ] Later: Add detailed roll formatting tests with individual dice breakdown
+### Current Status (Session 2025-10-02 - REFACTOR)
+**Decision**: Scrapped complex personality/bolt-on architecture in favor of Unix philosophy minimal core
+
+**Working Tests (3 passing):**
+- ✅ `display_help()` - returns usage string
+- ✅ `default_format(expr, result)` - pure formatter function
+- 🔴 `execute_command(BasicRoll(Ok(...)))` - RED TEST, needs implementation
+
+**Architecture Decisions:**
+- Keep Command type for clean separation and testability
+- Parse errors bubble up: `Result(BasicRoll, DiceError)` in Command
+- execute_command() handles Ok/Error cases and formats output
+- Bottom-up TDD: pure functions → integration → full pipeline
+
+### Next Steps (In Order)
+1. Implement single expression roll in execute_command()
+   - Use dice_trio.roll() with fixed test RNG
+   - Reconstruct expression string from BasicRoll for output
+   - Use default_format() for output
+2. Test multiple expression handling (numbered output)
+3. Test error formatting (DiceError → user-friendly string)
+4. Implement arg → Command parsing
+5. Full integration test through main()
+
+### ⚠️ IMPORTANT REMINDER
+**BEFORE NEXT COMMIT**: Perform full code and documentation review
+- Current commit is location-change only (refactor docs, no implementation)
+- Next commit should include working code + thorough review
+- Verify all docs match implementation state
+- Clean up any stale TODOs or outdated sections
 
 ### Quick Links
 - Main module: `src/dice_trio_cli.gleam`
@@ -82,22 +139,35 @@ gleam shell
 - Parent library: `../dice_trio/`
 
 ## Technical Decisions Log
-*Track key technical choices made during development*
 
-### CLI Argument Strategy
-- TBD: Choose CLI argument parsing approach
-- Priority: Simple dice expression as positional argument
-- Consider: Flag options for output format, verbosity, etc.
+### Why Minimal Architecture?
+**Problem**: Original design had feature creep
+- Corporate/gaming/pirate personality pools
+- TOML configuration files
+- Interactive REPL mode
+- Bolt-on discovery system
+- Multiple output modes
 
-### Output Formatting
-- TBD: Define output format for roll results
-- Consider: JSON output option for scripting
-- Priority: Human-readable default output
+**Decision**: Strip to Unix philosophy basics
+- Simple default output: `expr: [result]`
+- Composable with other tools via stdout
+- Extensions via separate packages, not core complexity
+- Core does ONE thing: roll dice, show results
 
-### Error Handling
-- TBD: User-friendly error messages for invalid input
-- Use Gleam Result types for predictable error handling
-- Focus on helpful feedback for CLI users
+### Why Keep Command Type?
+**Alternative**: Could parse args directly in main()
+**Decision**: Keep Command for testability
+- Separates parsing from execution
+- execute_command() is pure function (Command → String)
+- Easy to test all cases without I/O
+- Clean pattern matching on Command variants
+
+### Error Handling Strategy
+**Decision**: Errors propagate up to CLI layer
+- Command carries `Result(BasicRoll, DiceError)`
+- execute_command() unwraps and formats
+- CLI owns presentation, dice_trio owns logic
+- User-friendly messages at presentation layer
 
 ---
 *This file tracks Claude-specific development context and command shortcuts*
