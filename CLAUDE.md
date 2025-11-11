@@ -58,16 +58,20 @@ gleam shell
 
 ### Architecture Flow
 ```
-args → Command → execute_command() → String → stdout
+args → parse expressions → roll + format → String → stdout
 ```
 
-### Command Type
+### Current Public API
 ```gleam
-pub type Command {
-  Help
-  BasicRoll(Result(dice_trio.BasicRoll, dice_trio.DiceError))
-  BasicRollList(List(Result(dice_trio.BasicRoll, dice_trio.DiceError)))
-}
+// Pure formatting functions (composable, testable)
+pub fn format_single_roll(expression: String, total: Int) -> String
+pub fn format_multiple_rolls(rolls: List(String)) -> String
+
+// Integrated roll + format (convenience wrapper)
+pub fn roll_and_format(
+  expression: String,
+  rng_fn: fn(Int) -> Int
+) -> Result(String, dice_trio.DiceError)
 ```
 
 ### Output Format (Minimal Default)
@@ -92,10 +96,10 @@ Core stays minimal. Advanced features via:
 3. **Public API**: Export pure functions for other tools to use
 
 ```gleam
-// Extension point for libraries
+// Extension point for libraries - current implementation
 pub type Formatter = fn(String, Int) -> String
 
-pub fn default_format(expr: String, result: Int) -> String {
+pub fn format_single_roll(expr: String, result: Int) -> String {
   expr <> ": [" <> int.to_string(result) <> "]"
 }
 ```
@@ -105,26 +109,31 @@ pub fn default_format(expr: String, result: Int) -> String {
 ### Current Status (Session 2025-10-02 - REFACTOR)
 **Decision**: Scrapped complex personality/bolt-on architecture in favor of Unix philosophy minimal core
 
-**Working Tests (3 passing):**
-- ✅ `display_help()` - returns usage string
-- ✅ `default_format(expr, result)` - pure formatter function
-- 🔴 `execute_command(BasicRoll(Ok(...)))` - RED TEST, needs implementation
+**Working Tests (4 passing):**
+- ✅ `format_single_roll(expression, total)` - pure formatter: `"d6: [4]"`
+- ✅ `format_multiple_rolls(rolls)` - adds numbering to formatted roll list
+- ✅ `roll_and_format("d6", rng)` - integration test with fixed RNG
+- ✅ `roll_and_format("garbage", rng)` - error handling returns DiceError
 
-**Architecture Decisions:**
-- Keep Command type for clean separation and testability
-- Parse errors bubble up: `Result(BasicRoll, DiceError)` in Command
-- execute_command() handles Ok/Error cases and formats output
+**Current Implementation:**
+- `format_single_roll(expr, total) -> String` - Pure formatter function
+- `roll_and_format(expr, rng_fn) -> Result(String, DiceError)` - Rolls and formats in one step
+- `format_multiple_rolls(rolls) -> String` - Adds "1. ", "2. " numbering
+
+**Architecture Approach:**
+- Pure functions for formatting (testable without I/O)
+- Errors bubble up via Result types
 - Bottom-up TDD: pure functions → integration → full pipeline
 
 ### Next Steps (In Order)
-1. Implement single expression roll in execute_command()
-   - Use dice_trio.roll() with fixed test RNG
-   - Reconstruct expression string from BasicRoll for output
-   - Use default_format() for output
-2. Test multiple expression handling (numbered output)
-3. Test error formatting (DiceError → user-friendly string)
-4. Implement arg → Command parsing
-5. Full integration test through main()
+1. **Add `basic_roll_to_expression()` helper** (test publicly, then make private)
+   - Convert `BasicRoll(2, 6, 3)` → `"2d6+3"`
+   - Handle smart defaults (hide "1d", hide "+0")
+   - Test edge cases thoroughly before making private
+2. **Refactor to use parsing** - Use `dice_trio.parse()` + reconstruction for consistent formatting
+3. **Add error formatting** - Convert `DiceError` to user-friendly messages
+4. **Implement CLI arg parsing** - Map argv to function calls
+5. **Full integration through main()** - End-to-end with real RNG
 
 ### ⚠️ IMPORTANT REMINDER
 **BEFORE NEXT COMMIT**: Perform full code and documentation review
@@ -154,18 +163,18 @@ pub fn default_format(expr: String, result: Int) -> String {
 - Extensions via separate packages, not core complexity
 - Core does ONE thing: roll dice, show results
 
-### Why Keep Command Type?
-**Alternative**: Could parse args directly in main()
-**Decision**: Keep Command for testability
-- Separates parsing from execution
-- execute_command() is pure function (Command → String)
-- Easy to test all cases without I/O
-- Clean pattern matching on Command variants
+### Why Pure Functions Over Command Type?
+**Alternative**: Could use Command ADT for arg parsing
+**Decision**: Use pure functions - simplest thing that works
+- Functions are immediately testable
+- Composable by other tools
+- Less indirection, clearer flow
+- Can add Command type later if needed
 
 ### Error Handling Strategy
-**Decision**: Errors propagate up to CLI layer
-- Command carries `Result(BasicRoll, DiceError)`
-- execute_command() unwraps and formats
+**Decision**: Errors propagate up to CLI layer via Result types
+- Functions return `Result(String, DiceError)`
+- main() unwraps and formats for stderr
 - CLI owns presentation, dice_trio owns logic
 - User-friendly messages at presentation layer
 

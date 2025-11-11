@@ -1,5 +1,6 @@
 import dice_trio_cli
 import gleeunit
+
 import gleeunit/should
 
 pub fn main() -> Nil {
@@ -7,7 +8,8 @@ pub fn main() -> Nil {
 }
 
 pub fn should_format_single_roll_expression_with_result_test() {
-  dice_trio_cli.format_single_roll("d6", 4)
+  let assert Ok(norm_expr) = dice_trio_cli.normalize("d6")
+  dice_trio_cli.format_roll(norm_expr, 4)
   |> should.equal("d6: [4]")
 }
 

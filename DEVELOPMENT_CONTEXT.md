@@ -29,41 +29,46 @@
 - Core does ONE thing: roll dice, show results
 
 ### Working Implementation
-**Tests (3 total):**
-- ✅ `display_help()` - returns usage string
-- ✅ `default_format(expr, result)` - pure formatter function
-- 🔴 `execute_command(BasicRoll(Ok(...)))` - RED TEST, needs implementation next
+**Tests (4 passing - 2 unit, 2 integration):**
+- ✅ `format_single_roll(expression, total)` - pure formatter: `"d6: [4]"`
+- ✅ `format_multiple_rolls(rolls)` - adds "1. ", "2. " numbering to list
+- ✅ `roll_and_format("d6", fixed_rng)` - integration: roll + format with RNG
+- ✅ `roll_and_format("garbage", rng)` - integration: error handling
+
+**Current Public API:**
+```gleam
+pub fn format_single_roll(expression: String, total: Int) -> String
+pub fn format_multiple_rolls(rolls: List(String)) -> String
+pub fn roll_and_format(
+  expression: String,
+  rng_fn: fn(Int) -> Int
+) -> Result(String, dice_trio.DiceError)
+```
 
 **Architecture Flow:**
 ```
-args → Command → execute_command() → String → stdout
-```
-
-**Command Type:**
-```gleam
-pub type Command {
-  Help
-  BasicRoll(Result(dice_trio.BasicRoll, dice_trio.DiceError))
-  BasicRollList(List(Result(dice_trio.BasicRoll, dice_trio.DiceError)))
-}
+args → parse expressions → roll + format → String → stdout
 ```
 
 ### Next Steps (In Order)
-1. **Implement single expression roll**
-   - execute_command() handles BasicRoll(Ok(br))
-   - Call dice_trio.roll() with test RNG
-   - Reconstruct expression string from BasicRoll
-   - Use default_format() for output
-2. **Test multiple expression handling**
-   - Numbered output format (1. expr: [result])
-   - BasicRollList command variant
-3. **Test error formatting**
-   - Handle BasicRoll(Error(e))
-   - User-friendly error messages to stderr
-4. **Implement arg → Command parsing**
-   - Parse argv into Command variants
+1. **Add `basic_roll_to_expression()` helper** (test publicly, then make private)
+   - Convert `BasicRoll(2, 6, 3)` → `"2d6+3"`
+   - Handle smart defaults (hide "1d", hide "+0")
+   - Test edge cases: simple die, multiple dice, modifiers (positive/negative)
+2. **Refactor to use parsing for consistent formatting**
+   - Use `dice_trio.parse()` to get `BasicRoll`
+   - Reconstruct expression with `basic_roll_to_expression()`
+   - Ensures consistent output regardless of input format
+3. **Add error formatting**
+   - Convert `DiceError` variants to user-friendly messages
+   - Map to stderr output
+4. **Implement CLI arg parsing**
+   - Handle no args (help/usage)
+   - Single expression
+   - Multiple expressions
 5. **Full integration through main()**
    - End-to-end test with real RNG
+   - Exit codes for errors
 
 ## Development Flow
 
@@ -184,22 +189,23 @@ dice_trio.roll("2d6+3", rng)       // Ok(11)
 - Easy to maintain
 - Extensions don't bloat core
 
-### Why Keep Command Type?
-**Alternative**: Could parse args directly in main()
-**Decision**: Keep Command for testability and separation of concerns
+### Why Pure Functions Over Command Type?
+**Alternative**: Could use a Command ADT for arg parsing (Help | Roll | RollList)
+**Decision**: Use direct pure functions - simplest thing that works
 **Benefits**:
-- execute_command() is pure function (Command → String)
-- Easy to test all cases without I/O
-- Clean pattern matching on Command variants
-- Separates parsing from execution
+- Functions are immediately testable without wrapper types
+- Composable - other tools can import and use directly
+- Less indirection - clearer data flow
+- Easy to add Command type later if complexity demands it
 
 ### Error Handling Strategy
-**Decision**: Errors propagate up to CLI layer
-**Pattern**: Command carries `Result(BasicRoll, DiceError)`, execute_command() unwraps and formats
+**Decision**: Errors propagate up to CLI layer via Result types
+**Pattern**: Functions return `Result(String, DiceError)`, main() unwraps and formats for stderr
 **Benefits**:
 - CLI owns presentation, dice_trio owns logic
 - User-friendly messages at presentation layer
 - Type-safe error handling throughout
+- Easy to test error formatting separately
 
 ## Session Notes
 
@@ -219,10 +225,14 @@ dice_trio.roll("2d6+3", rng)       // Ok(11)
 - **Major decision**: Scrapped complex personality/bolt-on architecture
 - **Rationale**: Feature creep violated Unix philosophy
 - **New direction**: Minimal core, extensions via separate packages
-- **Current status**: 3 tests (2 passing, 1 red), ready to implement single roll execution
-- **Architecture**: Clean Command → execute_command() → String flow
+- **Current status**: 2 passing tests for pure formatting functions
+- **Architecture**: Simple pure functions - format_single_roll, format_multiple_rolls, roll_and_format
 - **Collaboration note**: thiccjay returning to coding after 2 weeks of laptop setup work
-- **Commit plan**: This commit documents refactor, next commit will implement + review
+
+### Session 4 (2025-11-11 - DOCUMENTATION SYNC)
+- **Updated docs** to match actual implementation (removed references to Command type)
+- **Next up**: Implement `basic_roll_to_expression()` helper with comprehensive edge case tests
+- **Strategy**: Test publicly first, then make private once bulletproof
 
 ---
 
