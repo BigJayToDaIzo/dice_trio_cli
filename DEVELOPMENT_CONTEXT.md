@@ -29,46 +29,36 @@
 - Core does ONE thing: roll dice, show results
 
 ### Working Implementation
-**Tests (4 passing - 2 unit, 2 integration):**
-- ✅ `format_single_roll(expression, total)` - pure formatter: `"d6: [4]"`
-- ✅ `format_multiple_rolls(rolls)` - adds "1. ", "2. " numbering to list
-- ✅ `roll_and_format("d6", fixed_rng)` - integration: roll + format with RNG
-- ✅ `roll_and_format("garbage", rng)` - integration: error handling
+**Tests (21 passing - unit, integration, and CLI tests):**
+- ✅ Format functions (single, multiple)
+- ✅ Normalization (all edge cases)
+- ✅ Roll execution with RNG
+- ✅ Error formatting
+- ✅ CLI process_args() - single, multiple, mixed valid/invalid
 
 **Current Public API:**
 ```gleam
-pub fn format_single_roll(expression: String, total: Int) -> String
+pub type NormalizedExpr {
+  NormalizedExpr(normalized_expression: String, roll: dice_trio.BasicRoll)
+}
+
+pub fn normalize(expression: String) -> Result(NormalizedExpr, dice_trio.DiceError)
+pub fn roll(expr: NormalizedExpr, rng_fn: fn(Int) -> Int) -> Int
+pub fn format_roll(expr: NormalizedExpr, total: Int) -> String
 pub fn format_multiple_rolls(rolls: List(String)) -> String
-pub fn roll_and_format(
-  expression: String,
-  rng_fn: fn(Int) -> Int
-) -> Result(String, dice_trio.DiceError)
+pub fn format_error(e: dice_trio.DiceError) -> String
+pub fn process_args(args: List(String)) -> Result(String, String)
 ```
 
 **Architecture Flow:**
 ```
-args → parse expressions → roll + format → String → stdout
+args → process_args() → normalize (parse once!) → roll → format → String → stdout
 ```
 
 ### Next Steps (In Order)
-1. **Add `basic_roll_to_expression()` helper** (test publicly, then make private)
-   - Convert `BasicRoll(2, 6, 3)` → `"2d6+3"`
-   - Handle smart defaults (hide "1d", hide "+0")
-   - Test edge cases: simple die, multiple dice, modifiers (positive/negative)
-2. **Refactor to use parsing for consistent formatting**
-   - Use `dice_trio.parse()` to get `BasicRoll`
-   - Reconstruct expression with `basic_roll_to_expression()`
-   - Ensures consistent output regardless of input format
-3. **Add error formatting**
-   - Convert `DiceError` variants to user-friendly messages
-   - Map to stderr output
-4. **Implement CLI arg parsing**
-   - Handle no args (help/usage)
-   - Single expression
-   - Multiple expressions
-5. **Full integration through main()**
-   - End-to-end test with real RNG
-   - Exit codes for errors
+1. **Implement main()** - Wire to erlang.start_arguments(), handle empty args
+2. **Manual CLI testing** - `gleam run -- d6 2d20+3`
+3. **Consider --detailed flag** - Show individual die values (future enhancement)
 
 ## Development Flow
 
@@ -229,10 +219,14 @@ dice_trio.roll("2d6+3", rng)       // Ok(11)
 - **Architecture**: Simple pure functions - format_single_roll, format_multiple_rolls, roll_and_format
 - **Collaboration note**: thiccjay returning to coding after 2 weeks of laptop setup work
 
-### Session 4 (2025-11-11 - DOCUMENTATION SYNC)
-- **Updated docs** to match actual implementation (removed references to Command type)
-- **Next up**: Implement `basic_roll_to_expression()` helper with comprehensive edge case tests
-- **Strategy**: Test publicly first, then make private once bulletproof
+### Session 4 (2025-11-11 - NORMALIZED EXPR REFACTOR & CLI IMPLEMENTATION)
+- **Documentation sync** - Fixed stale references to Command type
+- **NormalizedExpr refactor** - Eliminated double-parsing by storing both BasicRoll and normalized string
+- **Added prng dependency** - Gleam-native RNG, removed glint (staying minimal)
+- **Implemented process_args()** - Full CLI arg processing with inline error handling
+- **21 tests passing** - Single rolls, multiple rolls, mixed valid/invalid expressions
+- **Key decision**: Position-based numbering for both results and errors
+- **Next session**: Implement main() entry point and test end-to-end
 
 ---
 

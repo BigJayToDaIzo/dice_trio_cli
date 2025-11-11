@@ -106,34 +106,43 @@ pub fn format_single_roll(expr: String, result: Int) -> String {
 
 ## Session Tracking
 
-### Current Status (Session 2025-10-02 - REFACTOR)
-**Decision**: Scrapped complex personality/bolt-on architecture in favor of Unix philosophy minimal core
+### Current Status (Session 2025-11-11 - NORMALIZED EXPR & CLI IMPLEMENTATION)
+**Major Refactor**: Implemented `NormalizedExpr` type to eliminate double-parsing and normalize expressions at the boundary
 
-**Working Tests (4 passing):**
-- ✅ `format_single_roll(expression, total)` - pure formatter: `"d6: [4]"`
-- ✅ `format_multiple_rolls(rolls)` - adds numbering to formatted roll list
-- ✅ `roll_and_format("d6", rng)` - integration test with fixed RNG
-- ✅ `roll_and_format("garbage", rng)` - error handling returns DiceError
+**Working Tests (21 passing):**
+- ✅ All existing formatter and normalization tests
+- ✅ `process_args()` single expression - full pipeline with real RNG (prng)
+- ✅ `process_args()` multiple expressions - numbered output
+- ✅ `process_args()` mixed valid/invalid - inline error handling
 
 **Current Implementation:**
-- `format_single_roll(expr, total) -> String` - Pure formatter function
-- `roll_and_format(expr, rng_fn) -> Result(String, DiceError)` - Rolls and formats in one step
-- `format_multiple_rolls(rolls) -> String` - Adds "1. ", "2. " numbering
+```gleam
+pub type NormalizedExpr {
+  NormalizedExpr(normalized_expression: String, roll: dice_trio.BasicRoll)
+}
 
-**Architecture Approach:**
-- Pure functions for formatting (testable without I/O)
-- Errors bubble up via Result types
-- Bottom-up TDD: pure functions → integration → full pipeline
+pub fn normalize(expression: String) -> Result(NormalizedExpr, dice_trio.DiceError)
+pub fn roll(expr: NormalizedExpr, rng_fn: fn(Int) -> Int) -> Int
+pub fn format_roll(expr: NormalizedExpr, total: Int) -> String
+pub fn process_args(args: List(String)) -> Result(String, String)
+```
+
+**Key Architecture Wins:**
+- ✅ Parse once at boundary, use structured data everywhere (no double-parse!)
+- ✅ Real RNG using `prng` library (Gleam-native)
+- ✅ Normalized expressions: "1d6+0" → "d6"
+- ✅ Inline error handling: mixed valid/invalid expressions show both results and errors
+- ✅ Position-based numbering: errors and rolls numbered by argument position
+
+**Dependencies:**
+- `dice_trio` - Core dice rolling library
+- `prng` - Gleam-native RNG (removed glint, staying minimal)
 
 ### Next Steps (In Order)
-1. **Add `basic_roll_to_expression()` helper** (test publicly, then make private)
-   - Convert `BasicRoll(2, 6, 3)` → `"2d6+3"`
-   - Handle smart defaults (hide "1d", hide "+0")
-   - Test edge cases thoroughly before making private
-2. **Refactor to use parsing** - Use `dice_trio.parse()` + reconstruction for consistent formatting
-3. **Add error formatting** - Convert `DiceError` to user-friendly messages
-4. **Implement CLI arg parsing** - Map argv to function calls
-5. **Full integration through main()** - End-to-end with real RNG
+1. **Implement `main()` entry point** - Wire `process_args()` to CLI argv
+2. **Handle empty args** - Show usage/help message
+3. **Test end-to-end** - Manual CLI testing with `gleam run`
+4. **Consider `--detailed` flag** - Use `dice_trio.detailed_roll()` for individual die values (future enhancement)
 
 ### ⚠️ IMPORTANT REMINDER
 **BEFORE NEXT COMMIT**: Perform full code and documentation review
