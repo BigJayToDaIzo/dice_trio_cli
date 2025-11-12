@@ -14,7 +14,7 @@ pub fn main() -> Nil {
 pub fn should_handle_single_basic_roll_expression_test() {
   // Simulate: dtc d6
   let args = ["d6"]
-  let output = dice_trio_cli.process_args(args)
+  let output = dice_trio_cli.process_args(args, False)
 
   // Output should be formatted roll result like "d6: [4]"
   let assert Ok(result) = output
@@ -42,7 +42,7 @@ pub fn should_handle_single_basic_roll_expression_test() {
 pub fn should_handle_multiple_roll_expressions_test() {
   // Simulate: dtc d6 2d20+3 d8
   let args = ["d6", "2d20+3", "d8"]
-  let output = dice_trio_cli.process_args(args)
+  let output = dice_trio_cli.process_args(args, False)
 
   // Output should be numbered list format
   let assert Ok(result) = output
@@ -60,7 +60,7 @@ pub fn should_handle_multiple_roll_expressions_test() {
 pub fn should_handle_mixed_valid_and_invalid_expressions_test() {
   // Simulate: dtc d6 garbage 2d20+3
   let args = ["d6", "garbage", "2d20+3"]
-  let output = dice_trio_cli.process_args(args)
+  let output = dice_trio_cli.process_args(args, False)
 
   // Should still return Ok (processed all args)
   let assert Ok(result) = output

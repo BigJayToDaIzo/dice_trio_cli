@@ -63,15 +63,26 @@ args → parse expressions → roll + format → String → stdout
 
 ### Current Public API
 ```gleam
-// Pure formatting functions (composable, testable)
-pub fn format_single_roll(expression: String, total: Int) -> String
-pub fn format_multiple_rolls(rolls: List(String)) -> String
+// Core types
+pub type NormalizedExpr {
+  NormalizedExpr(normalized_expression: String, roll: dice_trio.BasicRoll)
+}
 
-// Integrated roll + format (convenience wrapper)
-pub fn roll_and_format(
-  expression: String,
-  rng_fn: fn(Int) -> Int
-) -> Result(String, dice_trio.DiceError)
+// Flag parsing
+pub fn parse_flags(args: List(String)) -> #(Bool, List(String))
+
+// Expression normalization and rolling
+pub fn normalize(expression: String) -> Result(NormalizedExpr, dice_trio.DiceError)
+pub fn roll(expr: NormalizedExpr, rng_fn: fn(Int) -> Int) -> Int
+
+// Formatting
+pub fn format_roll(expr: NormalizedExpr, total: Int) -> String
+pub fn format_detailed_roll(expr: NormalizedExpr, rolls: List(Int), modifier: Int) -> String
+pub fn format_multiple_rolls(rolls: List(String)) -> String
+pub fn format_error(e: dice_trio.DiceError) -> String
+
+// CLI processing
+pub fn process_args(args: List(String), detailed: Bool) -> Result(String, String)
 ```
 
 ### Output Format (Minimal Default)
@@ -106,14 +117,15 @@ pub fn format_single_roll(expr: String, result: Int) -> String {
 
 ## Session Tracking
 
-### Current Status (Session 2025-11-11 - NORMALIZED EXPR & CLI IMPLEMENTATION)
-**Major Refactor**: Implemented `NormalizedExpr` type to eliminate double-parsing and normalize expressions at the boundary
+### Current Status (Session 2025-11-12 - DETAILED FLAG IMPLEMENTATION IN PROGRESS)
+**Major Progress**: Implemented `-d`/`--detailed` flag infrastructure
 
-**Working Tests (21 passing):**
+**Working Tests (38 passing):**
 - ✅ All existing formatter and normalization tests
-- ✅ `process_args()` single expression - full pipeline with real RNG (prng)
-- ✅ `process_args()` multiple expressions - numbered output
-- ✅ `process_args()` mixed valid/invalid - inline error handling
+- ✅ `parse_flags()` - 6 tests for flag extraction
+- ✅ `format_detailed_roll()` - 5 tests for detailed output format
+- ✅ `process_args()` accepts `detailed: Bool` parameter (infrastructure ready)
+- ✅ Edge case handling (empty strings, whitespace, mixed valid/invalid)
 
 **Current Implementation:**
 ```gleam
@@ -121,28 +133,32 @@ pub type NormalizedExpr {
   NormalizedExpr(normalized_expression: String, roll: dice_trio.BasicRoll)
 }
 
+pub fn parse_flags(args: List(String)) -> #(Bool, List(String))
 pub fn normalize(expression: String) -> Result(NormalizedExpr, dice_trio.DiceError)
 pub fn roll(expr: NormalizedExpr, rng_fn: fn(Int) -> Int) -> Int
 pub fn format_roll(expr: NormalizedExpr, total: Int) -> String
-pub fn process_args(args: List(String)) -> Result(String, String)
+pub fn format_detailed_roll(expr: NormalizedExpr, rolls: List(Int), modifier: Int) -> String
+pub fn process_args(args: List(String), detailed: Bool) -> Result(String, String)
+pub fn main()  // Entry point complete
 ```
 
 **Key Architecture Wins:**
-- ✅ Parse once at boundary, use structured data everywhere (no double-parse!)
+- ✅ Parse once at boundary, use structured data everywhere
 - ✅ Real RNG using `prng` library (Gleam-native)
-- ✅ Normalized expressions: "1d6+0" → "d6"
-- ✅ Inline error handling: mixed valid/invalid expressions show both results and errors
-- ✅ Position-based numbering: errors and rolls numbered by argument position
+- ✅ Flag parsing separated from expression processing
+- ✅ Detailed format: `3d6: [4 + 2 + 5] = 11` with modifier support
+- ✅ `main()` wired to argv, errors go to stderr
 
 **Dependencies:**
 - `dice_trio` - Core dice rolling library
-- `prng` - Gleam-native RNG (removed glint, staying minimal)
+- `prng` - Gleam-native RNG
+- `argv` - Cross-platform argument parsing
 
 ### Next Steps (In Order)
-1. **Implement `main()` entry point** - Wire `process_args()` to CLI argv
-2. **Handle empty args** - Show usage/help message
-3. **Test end-to-end** - Manual CLI testing with `gleam run`
-4. **Consider `--detailed` flag** - Use `dice_trio.detailed_roll()` for individual die values (future enhancement)
+1. **Fix `format_detailed_roll()` signature** - Remove redundant modifier parameter (already in NormalizedExpr)
+2. **Implement detailed branching in `process_args()`** - Use `dice_trio.detailed_roll()` when `detailed=True`
+3. **Wire `parse_flags()` into `main()`** - Thread detailed flag through
+4. **Manual testing** - `gleam run -- -d 3d6`, verify output
 
 ### ⚠️ IMPORTANT REMINDER
 **BEFORE NEXT COMMIT**: Perform full code and documentation review

@@ -1,8 +1,10 @@
 import gleam/int
+import gleam/io
 import gleam/list
 import gleam/result
 import gleam/string
 
+import argv
 import dice_trio
 import prng/random
 
@@ -10,13 +12,37 @@ pub type NormalizedExpr {
   NormalizedExpr(normalized_expression: String, roll: dice_trio.BasicRoll)
 }
 
-pub fn process_args(args: List(String)) -> Result(String, String) {
-  let rng_fn = fn(max: Int) {
-    let generator = random.int(1, max)
-    random.random_sample(generator)
+pub fn main() {
+  let #(detailed, expressions) = parse_flags(argv.load().arguments)
+  case process_args(expressions, detailed) {
+    Ok(res) -> io.println(res)
+    Error(e) -> io.println_error(e)
   }
+}
+
+pub fn parse_flags(args: List(String)) -> #(Bool, List(String)) {
+  let flags = ["-d", "--detailed"]
+  let contains_flag =
+    list.contains(args, "-d") || list.contains(args, "--detailed")
+  case contains_flag {
+    True -> {
+      #(True, list.filter(args, fn(flag) { !list.contains(flags, flag) }))
+    }
+    False -> #(False, args)
+  }
+}
+
+pub fn rng_fn(max: Int) {
+  let generator = random.int(1, max)
+  random.random_sample(generator)
+}
+
+pub fn process_args(
+  args: List(String),
+  detailed: Bool,
+) -> Result(String, String) {
   case list.length(args) {
-    0 -> todo as "show usage help"
+    0 -> show_help()
     1 -> {
       // safe since we've already confirmed there's one item in the list
       let assert Ok(first) = list.first(args)
@@ -46,6 +72,10 @@ pub fn process_args(args: List(String)) -> Result(String, String) {
   }
 }
 
+fn show_help() -> Result(_, String) {
+  Error("Usage: dtc <expression>\nExample: dtc d6 | dtc d6+2 3d6")
+}
+
 pub fn normalize(
   expression: String,
 ) -> Result(NormalizedExpr, dice_trio.DiceError) {
@@ -63,6 +93,31 @@ pub fn roll(expr: NormalizedExpr, rng_fn: fn(Int) -> Int) -> Int {
 
 pub fn format_roll(expr: NormalizedExpr, total: Int) -> String {
   expr.normalized_expression <> ": [" <> int.to_string(total) <> "]"
+}
+
+pub fn format_detailed_roll(
+  expr: NormalizedExpr,
+  rolls: List(Int),
+  modifier: Int,
+) -> String {
+  let preamble = expr.normalized_expression <> ": ["
+  // how do we not tack on a " +" to the last item in the list?
+  let rolls_sum = int.sum(rolls)
+  let details =
+    rolls
+    |> list.map(int.to_string)
+    |> string.join(" + ")
+  let mod = case expr.roll.modifier {
+    0 -> ""
+    m if m > 0 -> " +" <> int.to_string(m)
+    _ -> " " <> int.to_string(modifier)
+  }
+  preamble
+  <> details
+  <> "]"
+  <> mod
+  <> " = "
+  <> int.to_string(rolls_sum + expr.roll.modifier)
 }
 
 pub fn format_multiple_rolls(rolls: List(String)) -> String {
