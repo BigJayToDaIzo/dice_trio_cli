@@ -14,7 +14,7 @@ pub type NormalizedExpr {
 
 pub fn main() {
   let #(detailed, expressions) = parse_flags(argv.load().arguments)
-  case process_args(expressions, detailed) {
+  case process_args(expressions, detailed, rng_fn) {
     Ok(res) -> io.println(res)
     Error(e) -> io.println_error(e)
   }
@@ -40,36 +40,47 @@ pub fn rng_fn(max: Int) {
 pub fn process_args(
   args: List(String),
   detailed: Bool,
+  rng_fn: fn(Int) -> Int,
 ) -> Result(String, String) {
-  case list.length(args) {
-    0 -> show_help()
-    1 -> {
-      // safe since we've already confirmed there's one item in the list
-      let assert Ok(first) = list.first(args)
-      normalize(first)
-      |> result.map_error(format_error)
-      |> result.try(fn(normalized) {
-        let total = roll(normalized, rng_fn)
-        Ok(format_roll(normalized, total))
-      })
-    }
-    _ -> {
-      let outputs =
-        args
-        |> list.index_map(fn(expr, index) {
-          case normalize(expr) |> result.map_error(format_error) {
-            Ok(normalized) -> {
-              let total = roll(normalized, rng_fn)
-              let formatted = format_roll(normalized, total)
-              int.to_string(index + 1) <> ". " <> formatted
-            }
-            Error(msg) -> int.to_string(index + 1) <> ". Error: " <> msg
+  case list.is_empty(args) {
+    True -> show_help()
+    False -> {
+      let results = process_expressions(args, detailed, rng_fn)
+      case list.length(results) {
+        1 -> {
+          let assert Ok(first) = list.first(results)
+          case string.starts_with(first, "Error: ") {
+            True -> Error(string.drop_start(first, 7))
+            False -> Ok(first)
           }
-        })
-      string.join(outputs, "\n")
-      |> Ok
+        }
+        _ -> Ok(format_multiple_rolls(results))
+      }
     }
   }
+}
+
+pub fn process_expressions(
+  args: List(String),
+  detailed: Bool,
+  rng_fn: fn(Int) -> Int,
+) -> List(String) {
+  args
+  |> list.map(fn(expr) {
+    case normalize(expr) {
+      Ok(normalized) -> {
+        let total = roll(normalized, rng_fn)
+        case detailed {
+          False -> format_roll(normalized, total)
+          True -> {
+            let assert Ok(detailed_roll) = dice_trio.detailed_roll(expr, rng_fn)
+            format_detailed_roll(normalized, detailed_roll.individual_rolls)
+          }
+        }
+      }
+      Error(e) -> "Error: " <> format_error(e)
+    }
+  })
 }
 
 fn show_help() -> Result(_, String) {
@@ -95,13 +106,8 @@ pub fn format_roll(expr: NormalizedExpr, total: Int) -> String {
   expr.normalized_expression <> ": [" <> int.to_string(total) <> "]"
 }
 
-pub fn format_detailed_roll(
-  expr: NormalizedExpr,
-  rolls: List(Int),
-  modifier: Int,
-) -> String {
+pub fn format_detailed_roll(expr: NormalizedExpr, rolls: List(Int)) -> String {
   let preamble = expr.normalized_expression <> ": ["
-  // how do we not tack on a " +" to the last item in the list?
   let rolls_sum = int.sum(rolls)
   let details =
     rolls
@@ -110,7 +116,7 @@ pub fn format_detailed_roll(
   let mod = case expr.roll.modifier {
     0 -> ""
     m if m > 0 -> " +" <> int.to_string(m)
-    _ -> " " <> int.to_string(modifier)
+    m -> " " <> int.to_string(m)
   }
   preamble
   <> details

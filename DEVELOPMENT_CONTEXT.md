@@ -10,31 +10,28 @@
 
 **Parent Library Status**: `dice_trio` core is production-ready with 56 comprehensive tests, DetailedRoll functionality, and bulletproof parsing. Ready to build minimal CLI on this solid foundation.
 
-## Current Status (Session 2025-10-02 - REFACTOR)
+## Current Status (Session 2025-11-14 - DETAILED FLAG COMPLETE)
 
-### Major Decision: Return to Unix Philosophy
-**What Changed**: Scrapped complex feature creep in favor of minimal core
+### Feature Complete: Detailed Flag Implementation
+**Major Progress**: Implemented `-d`/`--detailed` flag with full test coverage
 
-**OLD Approach (discarded)**:
-- Corporate/gaming/pirate personality pools
-- TOML configuration files
-- Interactive REPL mode
-- Bolt-on discovery system
-- Multiple output modes
+**What Changed This Session:**
+- Implemented detailed roll format: `3d6: [4 + 2 + 5] = 11`
+- Refactored `process_args()` for maintainability and separation of concerns
+- Extracted `process_expressions()` helper to eliminate duplication
+- Fixed RNG injection for deterministic testing
+- Added comprehensive test coverage (45 tests passing)
 
-**NEW Approach (current)**:
-- Simple default output: `expr: [result]`
-- Composable with other tools via stdout
-- Extensions via separate packages, not core complexity
-- Core does ONE thing: roll dice, show results
-
-### Working Implementation
-**Tests (21 passing - unit, integration, and CLI tests):**
-- ✅ Format functions (single, multiple)
+**Working Implementation:**
+**Tests (45 passing - unit, integration, and CLI tests):**
+- ✅ Format functions (simple and detailed)
 - ✅ Normalization (all edge cases)
-- ✅ Roll execution with RNG
+- ✅ Flag parsing (`-d`, `--detailed`)
+- ✅ Detailed roll formatting with modifiers
+- ✅ Roll execution with deterministic RNG in tests
 - ✅ Error formatting
-- ✅ CLI process_args() - single, multiple, mixed valid/invalid
+- ✅ CLI process_args() - single, multiple, mixed valid/invalid, both modes
+- ✅ Edge cases (empty strings, whitespace, mixed valid/invalid)
 
 **Current Public API:**
 ```gleam
@@ -42,23 +39,52 @@ pub type NormalizedExpr {
   NormalizedExpr(normalized_expression: String, roll: dice_trio.BasicRoll)
 }
 
+pub fn parse_flags(args: List(String)) -> #(Bool, List(String))
 pub fn normalize(expression: String) -> Result(NormalizedExpr, dice_trio.DiceError)
 pub fn roll(expr: NormalizedExpr, rng_fn: fn(Int) -> Int) -> Int
 pub fn format_roll(expr: NormalizedExpr, total: Int) -> String
+pub fn format_detailed_roll(expr: NormalizedExpr, rolls: List(Int)) -> String
 pub fn format_multiple_rolls(rolls: List(String)) -> String
 pub fn format_error(e: dice_trio.DiceError) -> String
-pub fn process_args(args: List(String)) -> Result(String, String)
+pub fn process_expressions(args: List(String), detailed: Bool, rng_fn: fn(Int) -> Int) -> List(String)
+pub fn process_args(args: List(String), detailed: Bool, rng_fn: fn(Int) -> Int) -> Result(String, String)
+pub fn main()
 ```
 
 **Architecture Flow:**
 ```
-args → process_args() → normalize (parse once!) → roll → format → String → stdout
+args → parse_flags → process_args(detailed, rng) → process_expressions → normalize/roll/format → String → stdout
 ```
 
+**CLI Usage:**
+```bash
+# Simple format (default)
+dtc d6              # Output: d6: [4]
+dtc d6 2d20+3       # Output: 1. d6: [3]
+                    #         2. 2d20+3: [15]
+
+# Detailed format (shows individual rolls)
+dtc -d d6           # Output: d6: [4] = 4
+dtc -d 3d6+2        # Output: 3d6+2: [4 + 3 + 5] +2 = 14
+dtc --detailed 2d20 # Output: 2d20: [12 + 18] = 30
+```
+
+### To Be Determined
+1. **Help/Usage Message Enhancement** - Current help doesn't mention `-d`/`--detailed` flag. Options:
+   - Update basic help message to include flag documentation
+   - Add proper `--help`/`-h` flag support
+   - Hybrid: short message + "run dtc --help for more"
+   - Decision pending until next session
+
+### Refactor Opportunities (Optional)
+1. **Magic strings** - "Error: " prefix and `7` magic number for error detection
+2. **Type safety** - `process_expressions()` returns `List(String)` mixing results and errors
+3. **Dead comment** - Line 112 in `format_detailed_roll()` about " + " handling
+
 ### Next Steps (In Order)
-1. **Implement main()** - Wire to erlang.start_arguments(), handle empty args
-2. **Manual CLI testing** - `gleam run -- d6 2d20+3`
-3. **Consider --detailed flag** - Show individual die values (future enhancement)
+1. **Decide on help message approach** - How to surface flag documentation
+2. **Update hexdocs** - Add module and function documentation
+3. **Consider refactors** - If time and interest permit
 
 ## Development Flow
 
@@ -227,6 +253,17 @@ dice_trio.roll("2d6+3", rng)       // Ok(11)
 - **21 tests passing** - Single rolls, multiple rolls, mixed valid/invalid expressions
 - **Key decision**: Position-based numbering for both results and errors
 - **Next session**: Implement main() entry point and test end-to-end
+
+### Session 5 (2025-11-14 - DETAILED FLAG COMPLETE)
+- **Detailed flag implementation** - Added `-d`/`--detailed` for showing individual die rolls
+- **Major refactor** - Extracted `process_expressions()` to eliminate duplication and simplify detailed branching
+- **Fixed `format_detailed_roll()` signature** - Removed redundant modifier parameter
+- **RNG injection fix** - Added `rng_fn` parameter throughout for deterministic testing
+- **45 tests passing** - All simple/detailed modes with deterministic assertions
+- **Key wins**: Clean separation of concerns, maintainable code, comprehensive test coverage
+- **Manual testing confirmed** - CLI works with both simple and detailed modes
+- **Session retrospective completed** - Identified TBD (help message) and refactor opportunities
+- **Next session**: Decide on help message approach, add hexdocs
 
 ---
 

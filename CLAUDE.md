@@ -1,5 +1,8 @@
 # Claude Code Configuration & Development Notes
 
+## Required Reading
+**ALWAYS read DEVELOPMENT_CONTEXT.md at the start of each session** - Contains comprehensive session history, current implementation status, and project context.
+
 ## Project Commands
 ```bash
 # Test suite
@@ -117,15 +120,17 @@ pub fn format_single_roll(expr: String, result: Int) -> String {
 
 ## Session Tracking
 
-### Current Status (Session 2025-11-12 - DETAILED FLAG IMPLEMENTATION IN PROGRESS)
-**Major Progress**: Implemented `-d`/`--detailed` flag infrastructure
+### Current Status (Session 2025-11-14 - DETAILED FLAG COMPLETE ✅)
+**Feature Complete**: `-d`/`--detailed` flag fully implemented with comprehensive test coverage
 
-**Working Tests (38 passing):**
-- ✅ All existing formatter and normalization tests
+**Working Tests (45 passing):**
+- ✅ All formatter tests (simple and detailed)
 - ✅ `parse_flags()` - 6 tests for flag extraction
 - ✅ `format_detailed_roll()` - 5 tests for detailed output format
-- ✅ `process_args()` accepts `detailed: Bool` parameter (infrastructure ready)
+- ✅ `process_expressions()` - Unit tests for both simple and detailed modes
+- ✅ `process_args()` - Integration tests for both modes
 - ✅ Edge case handling (empty strings, whitespace, mixed valid/invalid)
+- ✅ Deterministic testing with RNG injection
 
 **Current Implementation:**
 ```gleam
@@ -137,12 +142,17 @@ pub fn parse_flags(args: List(String)) -> #(Bool, List(String))
 pub fn normalize(expression: String) -> Result(NormalizedExpr, dice_trio.DiceError)
 pub fn roll(expr: NormalizedExpr, rng_fn: fn(Int) -> Int) -> Int
 pub fn format_roll(expr: NormalizedExpr, total: Int) -> String
-pub fn format_detailed_roll(expr: NormalizedExpr, rolls: List(Int), modifier: Int) -> String
-pub fn process_args(args: List(String), detailed: Bool) -> Result(String, String)
-pub fn main()  // Entry point complete
+pub fn format_detailed_roll(expr: NormalizedExpr, rolls: List(Int)) -> String
+pub fn format_multiple_rolls(rolls: List(String)) -> String
+pub fn format_error(e: dice_trio.DiceError) -> String
+pub fn process_expressions(args: List(String), detailed: Bool, rng_fn: fn(Int) -> Int) -> List(String)
+pub fn process_args(args: List(String), detailed: Bool, rng_fn: fn(Int) -> Int) -> Result(String, String)
+pub fn main()
 ```
 
 **Key Architecture Wins:**
+- ✅ Clean separation of concerns - `process_expressions()` for processing, `process_args()` for presentation
+- ✅ Deterministic testing via RNG injection
 - ✅ Parse once at boundary, use structured data everywhere
 - ✅ Real RNG using `prng` library (Gleam-native)
 - ✅ Flag parsing separated from expression processing
@@ -154,18 +164,20 @@ pub fn main()  // Entry point complete
 - `prng` - Gleam-native RNG
 - `argv` - Cross-platform argument parsing
 
-### Next Steps (In Order)
-1. **Fix `format_detailed_roll()` signature** - Remove redundant modifier parameter (already in NormalizedExpr)
-2. **Implement detailed branching in `process_args()`** - Use `dice_trio.detailed_roll()` when `detailed=True`
-3. **Wire `parse_flags()` into `main()`** - Thread detailed flag through
-4. **Manual testing** - `gleam run -- -d 3d6`, verify output
+### To Be Determined
+1. **Help/Usage Message** - Current help doesn't mention `-d`/`--detailed` flag
+   - Options: Update basic help, add `--help` flag, or hybrid approach
+   - Decision pending next session
 
-### ⚠️ IMPORTANT REMINDER
-**BEFORE NEXT COMMIT**: Perform full code and documentation review
-- Current commit is location-change only (refactor docs, no implementation)
-- Next commit should include working code + thorough review
-- Verify all docs match implementation state
-- Clean up any stale TODOs or outdated sections
+### Refactor Opportunities (Optional)
+1. Magic strings - "Error: " prefix and `7` for error detection
+2. Type safety - `process_expressions()` returns `List(String)` mixing results/errors
+3. Dead comment at line 112 in `format_detailed_roll()`
+
+### Next Steps (In Order)
+1. **Decide on help message approach** - How to surface flag documentation
+2. **Add hexdocs** - Module and function documentation
+3. **Consider refactors** - If time/interest permit
 
 ### Quick Links
 - Main module: `src/dice_trio_cli.gleam`

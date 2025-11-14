@@ -56,47 +56,49 @@ pub fn should_format_multiple_rolls_with_numbering_test() {
 pub fn should_format_detailed_single_die_no_modifier_test() {
   // d6 rolling [4]
   let assert Ok(norm_expr) = dice_trio_cli.normalize("d6")
-  dice_trio_cli.format_detailed_roll(norm_expr, [4], 0)
+  dice_trio_cli.format_detailed_roll(norm_expr, [4])
   |> should.equal("d6: [4] = 4")
 }
 
 pub fn should_format_detailed_multiple_dice_no_modifier_test() {
   // 3d6 rolling [4, 2, 5]
   let assert Ok(norm_expr) = dice_trio_cli.normalize("3d6")
-  dice_trio_cli.format_detailed_roll(norm_expr, [4, 2, 5], 0)
+  dice_trio_cli.format_detailed_roll(norm_expr, [4, 2, 5])
   |> should.equal("3d6: [4 + 2 + 5] = 11")
 }
 
 pub fn should_format_detailed_multiple_dice_with_positive_modifier_test() {
   // 2d20+3 rolling [7, 18]
   let assert Ok(norm_expr) = dice_trio_cli.normalize("2d20+3")
-  dice_trio_cli.format_detailed_roll(norm_expr, [7, 18], 3)
+  dice_trio_cli.format_detailed_roll(norm_expr, [7, 18])
   |> should.equal("2d20+3: [7 + 18] +3 = 28")
 }
 
 pub fn should_format_detailed_multiple_dice_with_negative_modifier_test() {
   // 2d20-1 rolling [7, 18]
   let assert Ok(norm_expr) = dice_trio_cli.normalize("2d20-1")
-  dice_trio_cli.format_detailed_roll(norm_expr, [7, 18], -1)
+  dice_trio_cli.format_detailed_roll(norm_expr, [7, 18])
   |> should.equal("2d20-1: [7 + 18] -1 = 24")
 }
 
 pub fn should_format_detailed_single_die_with_positive_modifier_test() {
   // d6+2 rolling [4]
   let assert Ok(norm_expr) = dice_trio_cli.normalize("d6+2")
-  dice_trio_cli.format_detailed_roll(norm_expr, [4], 2)
+  dice_trio_cli.format_detailed_roll(norm_expr, [4])
   |> should.equal("d6+2: [4] +2 = 6")
 }
 
 pub fn should_return_usage_message_when_no_args_provided_test() {
-  dice_trio_cli.process_args([], False)
+  let deterministic_rng = fn(_) { 4 }
+  dice_trio_cli.process_args([], False, deterministic_rng)
   |> should.equal(Error(
     "Usage: dtc <expression>\nExample: dtc d6 | dtc d6+2 3d6",
   ))
 }
 
 pub fn should_handle_empty_string_as_single_argument_test() {
-  let result = dice_trio_cli.process_args([""], False)
+  let deterministic_rng = fn(_) { 4 }
+  let result = dice_trio_cli.process_args([""], False, deterministic_rng)
   result
   |> should.be_error()
 
@@ -109,7 +111,8 @@ pub fn should_handle_empty_string_as_single_argument_test() {
 }
 
 pub fn should_handle_whitespace_only_string_as_argument_test() {
-  let result = dice_trio_cli.process_args(["  "], False)
+  let deterministic_rng = fn(_) { 4 }
+  let result = dice_trio_cli.process_args(["  "], False, deterministic_rng)
   result
   |> should.be_error()
 
@@ -121,7 +124,8 @@ pub fn should_handle_whitespace_only_string_as_argument_test() {
 }
 
 pub fn should_handle_all_invalid_expressions_test() {
-  let result = dice_trio_cli.process_args(["garbage", "invalid", "bad"], False)
+  let deterministic_rng = fn(_) { 4 }
+  let result = dice_trio_cli.process_args(["garbage", "invalid", "bad"], False, deterministic_rng)
   result
   |> should.be_ok()
 
@@ -136,7 +140,8 @@ pub fn should_handle_all_invalid_expressions_test() {
 }
 
 pub fn should_handle_empty_string_mixed_with_valid_expression_test() {
-  let result = dice_trio_cli.process_args(["", "d6", ""], False)
+  let deterministic_rng = fn(_) { 4 }
+  let result = dice_trio_cli.process_args(["", "d6", ""], False, deterministic_rng)
   result
   |> should.be_ok()
 
@@ -144,22 +149,102 @@ pub fn should_handle_empty_string_mixed_with_valid_expression_test() {
   let assert Ok(output) = result
   string.contains(output, "1. Error:")
   |> should.be_true()
-  string.contains(output, "2. d6: [")
+  string.contains(output, "2. d6: [4]")
   |> should.be_true()
   string.contains(output, "3. Error:")
   |> should.be_true()
 }
 
 pub fn should_handle_whitespace_mixed_with_valid_expressions_test() {
-  let result = dice_trio_cli.process_args(["  ", "d6", "  "], False)
+  let deterministic_rng = fn(_) { 4 }
+  let result = dice_trio_cli.process_args(["  ", "d6", "  "], False, deterministic_rng)
   result
   |> should.be_ok()
 
   let assert Ok(output) = result
   string.contains(output, "1. Error:")
   |> should.be_true()
-  string.contains(output, "2. d6: [")
+  string.contains(output, "2. d6: [4]")
   |> should.be_true()
   string.contains(output, "3. Error:")
   |> should.be_true()
+}
+
+// process_expressions() returns formatted strings without numbering
+pub fn should_process_expressions_with_mixed_valid_and_invalid_test() {
+  let deterministic_rng = fn(_) { 4 }
+  let results = dice_trio_cli.process_expressions(["invalid", "d6"], False, deterministic_rng)
+
+  // First item is error, second is result - NO numbering
+  let assert [first, second] = results
+  string.starts_with(first, "Error:")
+  |> should.be_true()
+  second
+  |> should.equal("d6: [4]")
+}
+
+// Detailed mode tests
+pub fn should_process_single_expression_with_detailed_format_test() {
+  let deterministic_rng = fn(_) { 4 }
+  let results = dice_trio_cli.process_expressions(["3d6"], True, deterministic_rng)
+
+  let assert [result] = results
+  result
+  |> should.equal("3d6: [4 + 4 + 4] = 12")
+}
+
+pub fn should_process_detailed_expression_with_positive_modifier_test() {
+  let deterministic_rng = fn(_) { 4 }
+  let results = dice_trio_cli.process_expressions(["2d6+3"], True, deterministic_rng)
+
+  let assert [result] = results
+  result
+  |> should.equal("2d6+3: [4 + 4] +3 = 11")
+}
+
+pub fn should_process_multiple_expressions_with_detailed_format_test() {
+  let deterministic_rng = fn(_) { 4 }
+  let results = dice_trio_cli.process_expressions(["d6", "2d20"], True, deterministic_rng)
+
+  let assert [first, second] = results
+  first
+  |> should.equal("d6: [4] = 4")
+  second
+  |> should.equal("2d20: [4 + 4] = 8")
+}
+
+pub fn should_process_mixed_valid_invalid_with_detailed_format_test() {
+  let deterministic_rng = fn(_) { 4 }
+  let results = dice_trio_cli.process_expressions(["invalid", "3d6", "bad"], True, deterministic_rng)
+
+  let assert [first, second, third] = results
+  string.starts_with(first, "Error:")
+  |> should.be_true()
+  second
+  |> should.equal("3d6: [4 + 4 + 4] = 12")
+  string.starts_with(third, "Error:")
+  |> should.be_true()
+}
+
+// Integration tests for process_args() with detailed flag
+pub fn should_return_detailed_format_for_single_expression_test() {
+  let deterministic_rng = fn(_) { 4 }
+  let result = dice_trio_cli.process_args(["3d6"], True, deterministic_rng)
+  result
+  |> should.be_ok()
+
+  let assert Ok(output) = result
+  output
+  |> should.equal("3d6: [4 + 4 + 4] = 12")
+}
+
+pub fn should_return_numbered_detailed_format_for_multiple_expressions_test() {
+  let deterministic_rng = fn(_) { 4 }
+  let result = dice_trio_cli.process_args(["d6", "2d20+3"], True, deterministic_rng)
+  result
+  |> should.be_ok()
+
+  let assert Ok(output) = result
+  output
+  |> should.equal("1. d6: [4] = 4\n2. 2d20+3: [4 + 4] +3 = 11")
 }
